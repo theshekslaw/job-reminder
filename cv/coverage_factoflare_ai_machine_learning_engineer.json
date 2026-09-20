@@ -1,0 +1,29 @@
+{
+ "covered": [
+  "python",
+  "ML frameworks (PyTorch/HuggingFace)",
+  "machine learning engineering",
+  "MLOps",
+  "cloud infrastructure",
+  "ML pipelines",
+  "model serving",
+  "deployment",
+  "data processing frameworks (Kafka)",
+  "bachelor's degree CS",
+  "AI agent systems",
+  "continuous learning / adaptation",
+  "real-time ML inference",
+  "containerization (Docker)",
+  "orchestration (Kubernetes)"
+ ],
+ "synonym_only": [
+  "ML metadata management (MLflow registry/tracking)",
+  "large-scale ML systems (production-scale)"
+ ],
+ "missing_have": [],
+ "missing_gap": [
+  "feature stores",
+  "distributed training",
+  "edge deployment"
+ ]
+}

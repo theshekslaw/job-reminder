@@ -91,6 +91,17 @@ def main() -> None:
     p.add_argument("--notes")
     p.add_argument("--source", default="user")
 
+    p = sub.add_parser("record-run")
+    p.add_argument("application_id")
+    p.add_argument("--stage", required=True)
+    p.add_argument("--result", default="")
+    p.add_argument("--model")
+    p.add_argument("--tokens-in", type=int, default=0)
+    p.add_argument("--tokens-out", type=int, default=0)
+    p.add_argument("--duration-ms", type=int, default=0)
+
+    sub.add_parser("session-stats")
+
     args = ap.parse_args()
     conn = get_conn()
 
@@ -235,6 +246,47 @@ def main() -> None:
         except IllegalTransition as e:
             print(f"tracker_db: {e}", file=sys.stderr)
             sys.exit(2)
+
+    elif args.cmd == "record-run":
+        conn.execute(
+            """INSERT INTO runs (application_id, command, stage, model, tokens_in,
+                                 tokens_out, duration_ms, result)
+               VALUES (%s, 'shek-apply', %s, %s, %s, %s, %s, %s)""",
+            (args.application_id, args.stage, args.model, args.tokens_in,
+             args.tokens_out, args.duration_ms, args.result),
+        )
+        conn.commit()
+        jprint({"ok": True, "application_id": args.application_id, "stage": args.stage})
+
+    elif args.cmd == "session-stats":
+        states = conn.execute(
+            "SELECT state, count(*)::int FROM applications GROUP BY state ORDER BY 2 DESC"
+        ).fetchall()
+        tokens = conn.execute(
+            """SELECT count(*)::int, coalesce(sum(tokens_in),0)::bigint,
+                      coalesce(sum(tokens_out),0)::bigint
+               FROM runs"""
+        ).fetchone()
+        prepared = conn.execute(
+            """SELECT a.application_id, p.company, p.title, a.fit_rating,
+                      a.keyword_coverage_score, a.resume_path, s.url
+               FROM applications a
+               JOIN job_postings p USING (application_id)
+               LEFT JOIN LATERAL (SELECT url FROM job_sources
+                                  WHERE application_id = a.application_id
+                                  ORDER BY first_seen_at LIMIT 1) s ON true
+               WHERE a.state IN ('PUBLISHED','AWAITING_APPROVAL','COVERAGE_BLOCKED')
+               ORDER BY a.updated_at DESC"""
+        ).fetchall()
+        jprint({
+            "states": {r[0]: r[1] for r in states},
+            "runs": {"count": tokens[0], "tokens_in": int(tokens[1]),
+                     "tokens_out": int(tokens[2])},
+            "prepared": [{"application_id": r[0], "company": r[1], "title": r[2],
+                          "fit": r[3],
+                          "coverage": float(r[4]) if r[4] is not None else None,
+                          "resume_path": r[5], "apply_link": r[6]} for r in prepared],
+        })
 
     elif args.cmd == "record-outcome":
         row = conn.execute(
