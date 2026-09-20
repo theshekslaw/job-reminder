@@ -25,6 +25,7 @@ documents/interview/**
 # master CV carries real PII and stays local-only, like resume-example/.
 cv/main_*.*
 cv/*.txt
+cv/coverage_*.json
 cover_letters/cover_*.*
 cover_letters/Cover_*.*
 resume/

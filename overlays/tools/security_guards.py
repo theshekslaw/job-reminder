@@ -97,6 +97,8 @@ REQUIRED_IGNORE_RULES = [
     "templates/cv/abhishek-default/template.tex",
     # ATS text extractions (/apply step 5d) carry the CV's full text.
     "cv/*.txt",
+    # job-hunt overlay: per-application keyword-coverage working files.
+    "cv/coverage_*.json",
     "cover_letters/cover_*.*",
     # /apply also recognizes the uppercase Cover_* naming variant.
     "cover_letters/Cover_*.*",
