@@ -1,0 +1,16 @@
+# Keep PII and state out of the image build context entirely
+.env
+documents/
+cv/
+cover_letters/
+resume/
+resume-example/
+state/
+company_research/
+gmail_sync/
+reports/
+packages/
+node_modules/
+.venv/
+.git/
+architecture/

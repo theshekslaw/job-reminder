@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(job-application-assistant)",
+      "Skill(pre-push-review)",
+      "Bash(bun run .agents/skills/jobbank-search/cli/src/cli.ts:*)",
+      "Bash(bun run .agents/skills/jobdanmark-search/cli/src/cli.ts:*)",
+      "Bash(bun run .agents/skills/jobindex-search/cli/src/cli.ts:*)",
+      "Bash(bun run .agents/skills/jobnet-search/cli/src/cli.ts:*)",
+      "Bash(bun run .agents/skills/linkedin-search/cli/src/cli.ts:*)",
+      "Bash(bun run .agents/skills/freehire-search/cli/src/cli.ts:*)",
+      "Bash(python salary_lookup.py:*)",
+      "Bash(python3 salary_lookup.py:*)",
+      "Bash(python tools/rank_state.py:*)",
+      "Bash(python3 tools/rank_state.py:*)",
+      "Bash(python tools/job_key.py:*)",
+      "Bash(python3 tools/job_key.py:*)",
+      "Bash(python tools/verify_pdf.py:*)",
+      "Bash(python3 tools/verify_pdf.py:*)",
+      "Bash(python tools/verify_layout.py:*)",
+      "Bash(python3 tools/verify_layout.py:*)",
+      "Bash(pdftotext:*)",
+      "Bash(uv run tools/tracker_db.py:*)",
+      "Bash(uv run tools/keyword_coverage.py:*)",
+      "Bash(uv run tools/template_guard.py:*)",
+      "Bash(uv run tools/publish_guard.py:*)",
+      "Bash(uv run tools/verify_pdf.py:*)",
+      "Bash(uv run tools/verify_layout.py:*)",
+      "Bash(uv run tools/security_guards.py:*)",
+      "Bash(uv run tools/lint_skills.py:*)",
+      "Bash(uv run pytest:*)",
+      "Bash(pdflatex:*)",
+      "Bash(xelatex:*)",
+      "Bash(bun run src/cli.ts:*)"
+    ]
+  }
+}

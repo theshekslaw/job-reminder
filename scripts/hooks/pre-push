@@ -1,0 +1,33 @@
+#!/bin/sh
+# job-hunt pre-push guard (invariant #3: PII never reaches git)
+#  1. Pushes are allowed ONLY to the private `origin` remote.
+#  2. The pushed tree must not contain personal-data paths.
+# Installed via: git config core.hooksPath scripts/hooks
+
+REMOTE="$1"
+ZERO=0000000000000000000000000000000000000000
+
+if [ "$REMOTE" != "origin" ]; then
+  echo "pre-push: BLOCKED — pushes are only allowed to 'origin' (got '$REMOTE')." >&2
+  echo "This repo contains personal job-search config; never push it elsewhere." >&2
+  exit 1
+fi
+
+# Paths that must never be version-controlled (mirrors .gitignore + security guards)
+FORBIDDEN='^(documents/(cv|linkedin|diplomas|references|projects|applications|postings|interview)/|resume/|resume-example/|state/|company_research/|gmail_sync/|reports/|\.env$|job_search_tracker\.csv$|cv/main_.*|cover_letters/[Cc]over_.*|\.claude/skills/job-application-assistant/0[12]-.*|templates/cv/abhishek-default/template\.tex$)'
+ALLOWED='^$'
+
+while read -r _local_ref local_sha _remote_ref _remote_sha; do
+  [ "$local_sha" = "$ZERO" ] && continue   # branch deletion
+  hits=$(git ls-tree -r --name-only "$local_sha" \
+    | grep -E "$FORBIDDEN" \
+    | grep -Ev "$ALLOWED")
+  if [ -n "$hits" ]; then
+    echo "pre-push: BLOCKED — commit $local_sha contains personal-data paths:" >&2
+    echo "$hits" | sed 's/^/  - /' >&2
+    echo "Remove them from history before pushing (git rm --cached + rewrite if needed)." >&2
+    exit 1
+  fi
+done
+
+exit 0

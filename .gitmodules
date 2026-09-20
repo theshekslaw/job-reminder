@@ -1,0 +1,3 @@
+[submodule "packages/ai-job-search"]
+	path = packages/ai-job-search
+	url = git@github.com-shek:theshekslaw/ai-job-search.git
