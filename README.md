@@ -113,6 +113,12 @@ It **prepares** applications — you click the apply links and submit. After sub
 
 Options: `/shek-apply --skip-scrape` (use what's in the DB), `/shek-apply --limit 20` (rank more candidates).
 
+**Use it from ANY directory:** `make install-command` installs a user-level wrapper at
+`~/.claude/commands/shek-apply.md` pinned to this repo's absolute path — so `/shek-apply`
+works in every Claude Code session, no matter where you launched it. (The repo's own
+commands like `/apply` and `/setup` still require launching `claude` from the repo root.)
+Re-run it if you move the repo.
+
 ## Daily use
 
 ```bash

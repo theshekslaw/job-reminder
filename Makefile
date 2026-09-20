@@ -37,6 +37,9 @@ migrate: ## Apply pending SQL migrations
 sync: ## Re-sync framework from submodule + re-apply overlays
 	bun run scripts/sync-framework.ts
 
+install-command: ## Install /shek-apply globally (usable from any directory)
+	sh scripts/install-global-command.sh
+
 run: ## Run the backend CLI locally (usage: make run ARGS="scrape" / "stats" / "apply <id>")
 	@if [ ! -f src/cli.ts ]; then echo "run: src/cli.ts not implemented yet (Phase B/F)"; exit 1; fi
 	bun run src/cli.ts $(ARGS)
