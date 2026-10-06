@@ -14,6 +14,12 @@ of record (DESIGN.md). All output is JSON so agent prompts can consume it.
     transition <id> <to> [--reason r] [--actor a]
     record-outcome <id> <outcome> [--notes n] [--source s]
     applied [--since YYYY-MM-DD]  everything you have applied to (outcome history + links)
+    record-outreach <id> --kind K --channel C [--name N] [--role R] [--contact X] [--draft-path P] [--notes n]
+    outreach-status <outreach_id> sent|replied|cancelled [--notes n]
+    outreach [--application-id id]  outreach drafted/sent per application
+    followups [--days N]          applied N+ days ago (default FOLLOWUP_AFTER_DAYS or 7), no reply, no recent follow-up
+    gmail-seen <message_id>...    which of these Gmail message ids /gmail-sync already processed
+    gmail-mark <message_id> --classification C --decision D [--application-id id] [--email-date ISO]
 """
 
 from __future__ import annotations
@@ -105,6 +111,40 @@ def main() -> None:
 
     p = sub.add_parser("applied")
     p.add_argument("--since", help="only applications first marked applied on/after this date")
+
+    p = sub.add_parser("record-outreach")
+    p.add_argument("application_id")
+    p.add_argument("--kind", required=True,
+                   choices=["referral_request", "hr_intro", "follow_up", "thank_you", "other"])
+    p.add_argument("--channel", required=True, choices=["email", "linkedin", "other"])
+    p.add_argument("--name")
+    p.add_argument("--role")
+    p.add_argument("--contact")
+    p.add_argument("--draft-path")
+    p.add_argument("--notes")
+
+    p = sub.add_parser("outreach-status")
+    p.add_argument("outreach_id", type=int)
+    p.add_argument("status", choices=["sent", "replied", "cancelled"])
+    p.add_argument("--notes")
+
+    p = sub.add_parser("outreach")
+    p.add_argument("--application-id")
+
+    p = sub.add_parser("followups")
+    p.add_argument("--days", type=int,
+                   default=int(__import__("os").environ.get("FOLLOWUP_AFTER_DAYS", 7)))
+
+    p = sub.add_parser("gmail-seen")
+    p.add_argument("message_ids", nargs="+")
+
+    p = sub.add_parser("gmail-mark")
+    p.add_argument("message_id")
+    p.add_argument("--classification", required=True)
+    p.add_argument("--decision", required=True,
+                   choices=["written", "skipped", "unmatched", "conflict", "noise"])
+    p.add_argument("--application-id")
+    p.add_argument("--email-date")
 
     args = ap.parse_args()
     conn = get_conn()
@@ -345,6 +385,85 @@ def main() -> None:
             {"application_id": r[0], "company": r[1], "title": r[2], "location": r[3],
              "applied_at": r[4], "latest_outcome": r[5], "outcome_updated_at": r[6],
              "resume_path": r[7], "url": r[8], "notes": r[9]} for r in rows]})
+
+
+    elif args.cmd == "record-outreach":
+        row = conn.execute(
+            """INSERT INTO outreach (application_id, kind, channel, recipient_name, recipient_role,
+                                     recipient_contact, draft_path, notes)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+            (args.application_id, args.kind, args.channel, args.name, args.role, args.contact,
+             args.draft_path, args.notes)).fetchone()
+        conn.commit()
+        jprint({"ok": True, "outreach_id": row[0], "status": "drafted"})
+
+    elif args.cmd == "outreach-status":
+        col = {"sent": "sent_at", "replied": "replied_at", "cancelled": None}[args.status]
+        sets = "status=%s" + (f", {col}=now()" if col else "") + \
+               ", notes=coalesce(notes || E'\\n', '') || coalesce(%s, '')"
+        n = conn.execute(f"UPDATE outreach SET {sets} WHERE id=%s",
+                         (args.status, args.notes, args.outreach_id)).rowcount
+        conn.commit()
+        if not n:
+            print(f"tracker_db: unknown outreach id {args.outreach_id}", file=sys.stderr)
+            sys.exit(1)
+        jprint({"ok": True, "outreach_id": args.outreach_id, "status": args.status})
+
+    elif args.cmd == "outreach":
+        q = """SELECT o.id, o.application_id, p.company, p.title, o.kind, o.channel,
+                      o.recipient_name, o.recipient_role, o.status, o.drafted_at, o.sent_at,
+                      o.replied_at, o.draft_path
+               FROM outreach o JOIN job_postings p USING (application_id)"""
+        params = ()
+        if args.application_id:
+            q += " WHERE o.application_id=%s"
+            params = (args.application_id,)
+        rows = conn.execute(q + " ORDER BY o.drafted_at DESC", params).fetchall()
+        keys = ["outreach_id", "application_id", "company", "title", "kind", "channel",
+                "recipient_name", "recipient_role", "status", "drafted_at", "sent_at",
+                "replied_at", "draft_path"]
+        jprint([dict(zip(keys, r)) for r in rows])
+
+    elif args.cmd == "followups":
+        rows = conn.execute(
+            """SELECT a.application_id, p.company, p.title,
+                      min(e.at) FILTER (WHERE e.outcome='applied') AS applied_at, s.url
+               FROM applications a
+               JOIN job_postings p USING (application_id)
+               JOIN outcome_events e USING (application_id)
+               LEFT JOIN LATERAL (SELECT url FROM job_sources
+                                  WHERE application_id = a.application_id
+                                  ORDER BY first_seen_at LIMIT 1) s ON true
+               WHERE a.outcome = 'applied'
+                 AND NOT EXISTS (SELECT 1 FROM outreach o
+                                 WHERE o.application_id = a.application_id
+                                   AND o.kind = 'follow_up' AND o.status <> 'cancelled'
+                                   AND o.drafted_at > now() - make_interval(days => %s))
+               GROUP BY a.application_id, p.company, p.title, s.url
+               HAVING min(e.at) FILTER (WHERE e.outcome='applied')
+                      <= now() - make_interval(days => %s)
+               ORDER BY applied_at""", (args.days, args.days)).fetchall()
+        jprint({"days": args.days, "due": [
+            {"application_id": r[0], "company": r[1], "title": r[2], "applied_at": r[3],
+             "url": r[4]} for r in rows]})
+
+    elif args.cmd == "gmail-seen":
+        seen = {r[0] for r in conn.execute(
+            "SELECT message_id FROM gmail_processed WHERE message_id = ANY(%s)",
+            (args.message_ids,)).fetchall()}
+        jprint({"processed": sorted(seen),
+                "new": [m for m in args.message_ids if m not in seen]})
+
+    elif args.cmd == "gmail-mark":
+        conn.execute(
+            """INSERT INTO gmail_processed (message_id, application_id, classification, decision,
+                                            email_date)
+               VALUES (%s,%s,%s,%s,%s) ON CONFLICT (message_id) DO UPDATE
+                 SET decision = EXCLUDED.decision, classification = EXCLUDED.classification""",
+            (args.message_id, args.application_id, args.classification, args.decision,
+             args.email_date))
+        conn.commit()
+        jprint({"ok": True, "message_id": args.message_id, "decision": args.decision})
 
 
 if __name__ == "__main__":

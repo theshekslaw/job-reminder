@@ -5,7 +5,7 @@ SHELL := /bin/sh
 .DEFAULT_GOAL := help
 
 .PHONY: help setup db-up db-down db-logs migrate sync run build run-docker \
-        scrape jd applied stats queue compile-example test clean
+        doctor scrape jd applied stats queue compile-example test clean
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -55,6 +55,9 @@ run-docker: ## Run the backend inside Docker (usage: make run-docker ARGS="stats
 
 scrape: ## Run the scrape pipeline headless
 	bun run src/cli.ts scrape
+
+doctor: ## Check .env, tools, DB, MinIO and profile setup (prints set/unset, never values)
+	uv run tools/doctor.py
 
 jd: ## Fetch full job descriptions for scraped postings (robots-gated; marks closed postings)
 	uv run tools/fetch_jd.py --missing --limit $${LIMIT:-50}

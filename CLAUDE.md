@@ -174,7 +174,13 @@ All transitions via `uv run tools/tracker_db.py transition <id> <STATE> --reason
 
 ## Backend commands
 
-`make scrape` (zero-LLM portal sweep) · `make jd` (fetch full job descriptions; robots-gated, marks closed postings) · `make applied` (everything you've applied to) · `make run ARGS="digest"` (daily matches) · `make run ARGS="apply <id|url>"` (headless /apply, stops at gate) · `make run ARGS="queue"` (awaiting review) · `make run ARGS="approve|reject|override <id>"` · `make stats` (states + token spend) · `make db-up|db-down` · `make sync` (framework re-sync + overlays) · `make test`.
+`make doctor` (check .env, tools, DB, MinIO, profile — prints set/unset, never values) · `make scrape` (zero-LLM portal sweep) · `make jd` (fetch full job descriptions; robots-gated, marks closed postings) · `make applied` (everything you've applied to) · `make run ARGS="digest"` (daily matches) · `make run ARGS="apply <id|url>"` (headless /apply, stops at gate) · `make run ARGS="queue"` (awaiting review) · `make run ARGS="approve|reject|override <id>"` · `make stats` (states + token spend) · `make db-up|db-down` · `make sync` (framework re-sync + overlays) · `make test`.
+
+## Outreach & mail
+
+`/outreach <id> referral|hr|followup|thanks` drafts messages from `10-outreach-templates.md`; the user sends them (never auto-send, never automate LinkedIn messaging, never guess contact emails). `/gmail-sync` reads replies through the claude.ai Gmail connector (user connects it; read-only) and records approved outcomes in the DB. `uv run tools/tracker_db.py followups` lists applications due a follow-up (FOLLOWUP_AFTER_DAYS).
+
+Portals that disallow automated access in robots.txt (e.g. Naukri) get no scraper: paste their postings into `/apply`.
 
 ## Environment isolation
 

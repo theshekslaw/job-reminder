@@ -1,5 +1,7 @@
 {
   "tools/security_guards.py": "2586ab007f9849e67ef3595075e0d9c7248f1ae3e95130f73bd76fb7c93ac5ff",
   ".claude/commands/apply.md": "bd999baabb179e88448c9a830fd24dea2df0b6c414e7eaac9654c2a833c23b0b",
-  ".claude/settings.json": "4c6d88f663c19a9ac334012b3bb57ea8528d0c72d9ed68101c66ab28987e397d"
+  ".claude/settings.json": "4c6d88f663c19a9ac334012b3bb57ea8528d0c72d9ed68101c66ab28987e397d",
+  ".claude/commands/gmail-sync.md": "3ca178b77672aeff8e6444dfcce2d491180152b70d6015926fded71a26e2f158",
+  ".claude/commands/outcome.md": "25e8585c7ea846c58ea6015fcc9e91ad28ffe927312d19a1bbedbf192ec4ff0a"
 }
