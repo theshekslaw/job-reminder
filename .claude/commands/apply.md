@@ -127,9 +127,11 @@ Also read for structural reference:
 - **Engage nice-to-haves by name** where the profile supports honest adjacency, and use the posting's own term over a synonym wherever it is truthfully applicable — including in CV section headings.
 - **Address stated logistics and prerequisites** in the cover letter where the posting raises them: start date or availability, location fit, and the posting's reference/job ID where one exists.
 
-*In both filenames below, `<company>_<role>` is derived by the **Subfolder naming** rule in `documents/README.md`.*
+*In both filenames below, `<company>_<role>` is derived by the **Subfolder naming** rule in `documents/README.md`. Apply it to the company and title **exactly as stored in the DB** (`tracker_db.py status $APP_ID`), so the folder matches the one `publish_guard.py` and `assist_browser.py` derive.*
 
-### CV (`cv/main_<company>_<role><CV_EXT>`)
+### CV (source `documents/applications/<company>_<role>/resume<CV_EXT>` → PDF `cv/main_<company>_<role>.pdf`)
+
+**Folder layout (user preference):** `cv/` holds ONLY finished resume PDFs plus the master `cv/main_example.tex`. The CV source, coverage JSON, extracted text and every other working file live in `documents/applications/<company>_<role>/`. Never write `.tex`, `.json`, `.txt` or build artifacts into `cv/`.
 - In the **CV language from the profile** (default **English**). Never switch language per posting.
 - **Start from the template skeleton** (`templates/cv/abhishek-default/template.tex`) and edit content ONLY inside the editable regions the manifest names: summary text, skills rows, experience bullets, project selection, achievements. The preamble and macro definitions are immutable.
 - Tailor the Professional Summary and experience bullets to the specific role; reframe skills and achievements to match job requirements.
@@ -147,7 +149,7 @@ Also read for structural reference:
 Write both files to disk. Then validate the CV draft against the template contract:
 
 ```bash
-uv run tools/template_guard.py --draft cv/main_<company>_<role>.tex
+uv run tools/template_guard.py --draft documents/applications/<company>_<role>/resume.tex
 ```
 
 A VIOLATION (exit 2) means you edited a forbidden region — fix the draft (restore the preamble/macros from the skeleton) before continuing. When it passes, advance the state:
@@ -202,7 +204,7 @@ Compare every date, employer, job title, and quantitative metric in both drafts 
 ### 4. Drafts to Review
 Both drafts are provided inline below. Do NOT use the Read tool on the draft files — use these exact texts.
 
-<CV_DRAFT file="cv/main_<COMPANY>_<ROLE><CV_EXT>">
+<CV_DRAFT file="documents/applications/<COMPANY>_<ROLE>/resume<CV_EXT>">
 <INSERT_CV_DRAFT_HERE>
 </CV_DRAFT>
 
@@ -223,7 +225,7 @@ Return your feedback in **two parts**:
 A JSON array of concrete edits the drafter can apply directly without re-reading the files. Each edit is an object:
 ```json
 {
-  "file": "cv/main_<COMPANY>_<ROLE><CV_EXT>" | "cover_letters/cover_<COMPANY>_<ROLE><COVER_EXT>",
+  "file": "documents/applications/<COMPANY>_<ROLE>/resume<CV_EXT>" | "cover_letters/cover_<COMPANY>_<ROLE><COVER_EXT>",
   "old_string": "<exact text currently in the draft>",
   "new_string": "<replacement text>",
   "reason": "<one-line rationale: keyword match / company angle / reframing / style / grounding>"
@@ -263,7 +265,7 @@ Once the reviewer agent returns its feedback:
 After all edits are applied, re-validate the CV draft:
 
 ```bash
-uv run tools/template_guard.py --draft cv/main_<company>_<role>.tex
+uv run tools/template_guard.py --draft documents/applications/<company>_<role>/resume.tex
 ```
 
 Fix any violation before proceeding. The two files on disk are now the final drafts. Keep the reviewer's Part A array and a short summary of Part B in working memory — Step 6b persists them in the review packet.
@@ -279,13 +281,13 @@ Fix any violation before proceeding. The two files on disk are now the final dra
 Use `<CV_COMPILE>` and `<COVER_COMPILE>` resolved in Step 2. For the active `abhishek-default` template:
 
 ```bash
-cd cv && pdflatex -interaction=nonstopmode main_<company>_<role>.tex
-cd ../cover_letters && xelatex -interaction=nonstopmode cover_<company>_<role>.tex
+pdflatex -interaction=nonstopmode -output-directory=cv -jobname=main_<company>_<role> documents/applications/<company>_<role>/resume.tex
+cd cover_letters && xelatex -interaction=nonstopmode cover_<company>_<role>.tex
 ```
 
 - The **CV** uses **pdflatex** (the active template needs no fontspec/lualatex).
 - The **cover letter** uses **xelatex** — cover.cls requires fontspec.
-- If `pdflatex`/`xelatex` are not installed locally, compile via Docker: `docker run --rm -v "$PWD":/work -w /work/cv texlive/texlive:latest-small pdflatex -interaction=nonstopmode main_<company>_<role>.tex` (same pattern for the cover letter with xelatex).
+- If `pdflatex`/`xelatex` are not installed locally, compile via Docker: `docker run --rm -v "$PWD":/work -w /work texlive/texlive:latest pdflatex -interaction=nonstopmode -output-directory=cv -jobname=main_<company>_<role> documents/applications/<company>_<role>/resume.tex` (for the cover letter: `-w /work/cover_letters` with xelatex).
 
 If either compile fails, fix the error and re-compile until clean.
 
@@ -336,7 +338,7 @@ An ATS parser reads the PDF's embedded **text layer**. This step verifies what a
 **1. Extract the text layer:**
 
 ```bash
-uv run tools/verify_pdf.py cv/main_<company>_<role>.pdf --dump-text cv/main_<company>_<role>.txt
+uv run tools/verify_pdf.py cv/main_<company>_<role>.pdf --dump-text documents/applications/<company>_<role>/resume.txt
 ```
 
 Read the `.txt`. Record the extractor name for the Step 6 report.
@@ -360,30 +362,43 @@ Failures here are template-level problems: fix in the source, re-run 5a–5c, re
 - **missing (have it)** — the profile shows the candidate genuinely has this skill but the CV never says it: add it where it fits naturally, then re-run 5a–5c.
 - **missing (gap)** — a genuine gap: leave it missing. **Never stuff keywords.**
 
-**4. Run the coverage gate.** Write the four lists to `cv/coverage_<company>_<role>.json`:
+**4. Run the coverage gate (ATS score v2).** Build the requirement list from the **posting** (required vs preferred as the posting states them), not from what the CV happens to say. Write it to `documents/applications/<company>_<role>/coverage.json`:
 
 ```json
-{"covered": [...], "synonym_only": [...], "missing_have": [...], "missing_gap": [...]}
+{"version": 2, "requirements": [
+  {"term": "LangGraph", "priority": "required", "alternatives": ["LangChain", "CrewAI", "Semantic Kernel"],
+    "kind": "skill", "status": "covered", "evidence": "skills row + summary"},
+  {"term": "3+ years software engineering", "priority": "required", "kind": "eligibility",
+    "status": "missing_gap", "evidence": "candidate has 2+"}
+]}
 ```
+
+- An "X, Y, or equivalent" requirement is **one** item; list the named options as `alternatives` — any one covered satisfies it.
+- `kind: "eligibility"` (years, degree, location, notice period) is reported but not keyword-scored. Say so explicitly when you classify something as eligibility — it is a judgment call the user should see.
+- Required items weigh 3, preferred 1. The tool re-checks every `covered` item against the resume text and downgrades it if absent; it never upgrades a `missing_gap`.
 
 Then, on the FIRST audit only, enter the gate state, and score:
 
 ```bash
 uv run tools/tracker_db.py transition $APP_ID COVERAGE_CHECK --reason "keyword audit"
-uv run tools/keyword_coverage.py --file cv/coverage_<company>_<role>.json --application-id $APP_ID
+uv run tools/keyword_coverage.py --file documents/applications/<company>_<role>/coverage.json --resume-text documents/applications/<company>_<role>/resume.txt --application-id $APP_ID --write
 ```
 
+Report the result: keyword score, required/preferred coverage, parseability score with its failed checks, any `downgrades` (fix the CV or the audit — a downgrade means a claimed keyword is not actually in the PDF text), and `eligibility` items.
+
+- **Exit 5 (revise — `must_add`):** these skills are in the profile but not in the resume. Add each where it fits truthfully (skills row first, then the most relevant bullet), recompile (5a–5c), re-extract, re-run. If the page is full after relevance-weighted cutting, re-run with `--accept-missing-have "<reason>"` and tell the user which skills stayed off and why. This never counts as one of the 3 audit attempts.
 - **Exit 0 (pass):** `uv run tools/tracker_db.py transition $APP_ID VALIDATED --reason "coverage <score>"` — continue to 5e.
+- **Exit 3 because parseability is below threshold:** fix the text layer (template/encoding), not the keywords; re-run 5a–5d.
 - **Exit 3 (below threshold), fewer than 3 audit attempts so far:** every `missing (have it)` keyword is unrealized coverage — transition back (`transition $APP_ID DRAFTED --reason "coverage <score>, revising"`), work them in honestly, re-run 5a–5d (each re-audit overwrites the JSON, re-enters COVERAGE_CHECK, and re-scores).
 - **Exit 3 with all 3 attempts spent, or every remaining miss is `missing (gap)`:** the honest ceiling is below the threshold. Run `uv run tools/tracker_db.py transition $APP_ID COVERAGE_BLOCKED --reason "honest ceiling <score>: gaps <list>"`, present the gap table to the user, and **stop**. Tell them the choice: `make run ARGS="override $APP_ID <reason>"` records a HUMAN_OVERRIDE and validates (then rerun `/apply $APP_ID` — it resumes from the packet step), or `make run ARGS="reject $APP_ID <reason>"` closes it. Never stuff keywords to clear the bar.
 
 > A multi-word phrase reported missing may be a punctuation-spacing artifact between extractors. Re-check against the other extractor before concluding the text is absent.
 
-**5. Clean up:** delete the extracted `.txt` (keep the coverage `.json` — Step 6b persists it, then deletes it).
+**5. Clean up:** delete the extracted `resume.txt` after the gate passes (keep the coverage `.json` — it now carries the `result`).
 
 ### 5e. Clean up build artifacts
 
-After the final clean compile, delete intermediate build files (`.aux`/`.log`/`.out`). Keep the source files, the PDFs, and the coverage JSON.
+After the final clean compile, delete intermediate build files (`.aux`/`.log`/`.out`) from `cv/` and `cover_letters/`, and delete the extracted `resume.txt`. `cv/` must end up holding only resume PDFs plus `main_example.tex`; the source and coverage JSON stay in `documents/applications/<company>_<role>/`.
 
 ---
 
@@ -414,14 +429,14 @@ Do this before ending the turn for any reason.
 ```bash
 uv run tools/tracker_db.py record-packet $APP_ID \
   --pdf cv/main_<company>_<role>.pdf \
-  --tex cv/main_<company>_<role>.tex \
-  --coverage-file cv/coverage_<company>_<role>.json \
+  --tex documents/applications/<company>_<role>/resume.tex \
+  --coverage-file documents/applications/<company>_<role>/coverage.json \
   --decisions-file documents/applications/<company>_<role>/tailoring_decisions.json \
   --reviewer-file documents/applications/<company>_<role>/reviewer_output.json
 uv run tools/tracker_db.py transition $APP_ID AWAITING_APPROVAL --reason "review packet ready"
 ```
 
-Then delete `cv/coverage_<company>_<role>.json` (it now lives in the DB).
+Keep `documents/applications/<company>_<role>/coverage.json` (gitignored; it also lives in the DB).
 
 ### Step 6c: REVIEW GATE — stop here
 
@@ -450,6 +465,7 @@ Check whether the posting or the portal it came from asks for free-text fields t
 **Only on yes**, read `08-application-forms.md` and draft the fields per its rules, grounded against the same three-source union. On no, say nothing further.
 
 ### Next Steps (after approval)
-- **Submitted the application by hand?** Record it: `uv run tools/tracker_db.py record-outcome $APP_ID applied --notes "<portal/date>"` — this is what starts the follow-up clock and feeds `/stats`.
+- **Want help filling the form?** `/assist-apply $APP_ID` opens the posting in the cmux browser, fills fields from your profile, uploads the approved PDF, and stops on the review screen — you click Submit.
+- **Submitted the application?** Record it: `uv run tools/mark_applied.py --application-id $APP_ID --notes "<portal/date>"` — records `applied` (starts the follow-up clock, feeds `/stats`) and deletes the resume PDFs from cv/, the archive and MinIO (the `.tex` source stays for interview prep).
 - **Heard back?** `record-outcome $APP_ID interview|offer|hired|rejected|no_response` as things develop.
 - **Interview scheduled?** `/interview` builds a stage-specific prep pack from this posting and the archived documents.

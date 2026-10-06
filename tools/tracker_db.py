@@ -5,7 +5,7 @@ of record (DESIGN.md). All output is JSON so agent prompts can consume it.
 
     ensure --company C --title T [--location L] [--url U] [--source S] [--description-file F]
                                 upsert a posting (for /apply on a pasted URL/text); prints application_id
-    candidates --limit N        DISCOVERED apps not yet ranked (for /rank)
+    candidates --limit N        DISCOVERED apps not yet ranked (for /rank); skips closed postings
     list [--state S]            applications overview
     status <application_id>     one application: posting, state, transitions, outcomes
     record-rank <id> --score N --reason ... [--matched j] [--missing j] [--model m]
@@ -13,6 +13,7 @@ of record (DESIGN.md). All output is JSON so agent prompts can consume it.
     record-packet <id> --pdf P --tex T [--coverage-file f] [--decisions-file f] [--reviewer-file f]
     transition <id> <to> [--reason r] [--actor a]
     record-outcome <id> <outcome> [--notes n] [--source s]
+    applied [--since YYYY-MM-DD]  everything you have applied to (outcome history + links)
 """
 
 from __future__ import annotations
@@ -102,6 +103,9 @@ def main() -> None:
 
     sub.add_parser("session-stats")
 
+    p = sub.add_parser("applied")
+    p.add_argument("--since", help="only applications first marked applied on/after this date")
+
     args = ap.parse_args()
     conn = get_conn()
 
@@ -147,13 +151,15 @@ def main() -> None:
                                   WHERE application_id = a.application_id
                                   ORDER BY first_seen_at LIMIT 1) s ON true
                WHERE a.state = 'DISCOVERED'
+                 AND p.posting_active IS DISTINCT FROM false
                  AND NOT EXISTS (SELECT 1 FROM rankings r
                                  WHERE r.application_id = a.application_id)
                ORDER BY p.scraped_at DESC LIMIT %s""",
             (args.limit,),
         ).fetchall()
         jprint([{"application_id": r[0], "company": r[1], "title": r[2],
-                 "location": r[3], "description": (r[4] or "")[:2000], "url": r[5]}
+                 "location": r[3], "description": (r[4] or "")[:12000],
+                 "description_chars": len(r[4] or ""), "url": r[5]}
                 for r in rows])
 
     elif args.cmd == "list":
@@ -312,6 +318,33 @@ def main() -> None:
         )
         conn.commit()
         jprint({"ok": True, "application_id": args.application_id, "outcome": args.outcome})
+
+    elif args.cmd == "applied":
+        rows = conn.execute(
+            """SELECT a.application_id, p.company, p.title, p.location,
+                      min(e.at) FILTER (WHERE e.outcome = 'applied') AS applied_at,
+                      a.outcome, a.outcome_updated_at, a.resume_path, s.url,
+                      (SELECT notes FROM outcome_events
+                        WHERE application_id = a.application_id AND outcome = 'applied'
+                        ORDER BY at LIMIT 1)
+               FROM applications a
+               JOIN job_postings p USING (application_id)
+               JOIN outcome_events e USING (application_id)
+               LEFT JOIN LATERAL (SELECT url FROM job_sources
+                                  WHERE application_id = a.application_id
+                                  ORDER BY first_seen_at LIMIT 1) s ON true
+               GROUP BY a.application_id, p.company, p.title, p.location, a.outcome,
+                        a.outcome_updated_at, a.resume_path, s.url
+               HAVING bool_or(e.outcome = 'applied')
+                  AND (%s::date IS NULL
+                       OR min(e.at) FILTER (WHERE e.outcome = 'applied') >= %s::date)
+               ORDER BY applied_at DESC""",
+            (args.since, args.since),
+        ).fetchall()
+        jprint({"count": len(rows), "applied": [
+            {"application_id": r[0], "company": r[1], "title": r[2], "location": r[3],
+             "applied_at": r[4], "latest_outcome": r[5], "outcome_updated_at": r[6],
+             "resume_path": r[7], "url": r[8], "notes": r[9]} for r in rows]})
 
 
 if __name__ == "__main__":

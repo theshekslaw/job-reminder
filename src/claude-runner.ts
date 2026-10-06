@@ -17,6 +17,7 @@ export interface ClaudeRunResult {
 
 const ENV_WHITELIST = [
   "JOB_INTERESTS", "JOB_LOCATIONS", "RESUME_USERNAME", "KEYWORD_COVERAGE_THRESHOLD",
+  "PARSEABILITY_THRESHOLD",
   // process basics the CLI itself needs:
   "HOME", "PATH", "SHELL", "TERM", "LANG", "USER", "TMPDIR",
 ];

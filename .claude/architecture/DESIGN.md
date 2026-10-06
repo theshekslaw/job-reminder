@@ -56,7 +56,7 @@
 
 | # | Invariant | Enforcement |
 |---|-----------|-------------|
-| 1 | **NEVER SUBMIT** — the system prepares applications; the user submits | no submission code paths, no board logins, no browser automation |
+| 1 | **ONLY THE HUMAN SUBMITS** — the system prepares applications and may fill forms (assisted apply); the user reviews and clicks Submit | no submission APIs; browser only via `tools/assist_browser.py` (refuses submit clicks / Enter / password fields, no raw JS, uploads only the approved PDF, requires PUBLISHED); Claude never logs in |
 | 2 | **Side effects require APPROVED** | `publish_guard.py` reads state from Postgres and raises otherwise |
 | 3 | **PII never reaches git** (data is fully used locally — DB, PDFs, MinIO; it just never gets pushed) | `.gitignore` + `security_guards.py` + pre-push hook (origin-only + PII tree scan) |
 | 4 | **Tier 2/3 data never creates Tier 1 facts** | fact hierarchy below |

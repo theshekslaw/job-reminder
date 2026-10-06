@@ -42,6 +42,12 @@ ALLOWED_PERMISSIONS = {
     "Skill(pre-push-review)",
     "Bash(uv run tools/tracker_db.py:*)",
     "Bash(uv run tools/keyword_coverage.py:*)",
+    # JD enrichment (zero-LLM, robots-gated) and the assisted-apply browser wrapper
+    # (fills forms; refuses submit clicks — the human submits).
+    "Bash(uv run tools/fetch_jd.py:*)",
+    "Bash(uv run tools/assist_browser.py:*)",
+    # Records the user's submission and deletes the no-longer-needed resume PDFs.
+    "Bash(uv run tools/mark_applied.py:*)",
     "Bash(uv run tools/template_guard.py:*)",
     "Bash(uv run tools/publish_guard.py:*)",
     "Bash(uv run tools/verify_pdf.py:*)",

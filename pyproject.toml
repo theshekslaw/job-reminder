@@ -15,6 +15,11 @@ dev = [
     "pytest>=8.0",
     "pyyaml>=6.0.3",
 ]
+# Optional: embedding-based synonym checks in keyword_coverage.py
+# (uv sync --group semantic; downloads a ~130 MB model on first use).
+semantic = [
+    "fastembed>=0.4",
+]
 
 [tool.uv]
 package = false

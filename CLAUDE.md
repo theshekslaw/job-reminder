@@ -153,12 +153,12 @@ Full design: `.claude/architecture/DESIGN.md` · plan: `.claude/architecture/PLA
 
 ## Invariants (never violate)
 
-1. **NEVER SUBMIT.** This system prepares applications; the user submits by hand. No browser automation of job boards, no submission APIs, no board logins.
+1. **ONLY THE HUMAN SUBMITS.** This system prepares applications and may *fill* application forms (assisted apply), but the user reviews and clicks Submit. Browser actions go ONLY through `uv run tools/assist_browser.py`, which refuses submit-like clicks and the Enter key, refuses password/OTP fields, exposes no raw JS, and uploads only the approved resume of a PUBLISHED application. No submission APIs; Claude never logs in or handles credentials (the user logs in themselves).
 2. **Side effects require approval.** The resume upload, final-PDF archive, and memory event run ONLY through `uv run tools/publish_guard.py`, which refuses any state except AWAITING_APPROVAL. Never copy a final PDF or mark anything published by hand.
 3. **PII never reaches git.** Personal data is fully used locally (drafts, DB, MinIO) but never committed. Guards: `.gitignore`, `tools/security_guards.py`, `scripts/hooks/pre-push`. Before ANY push, run the `pre-push-review` skill.
 4. **The DB is the only record.** There is no `job_search_tracker.csv`. State, fit, coverage, rankings, packets, and outcomes live in Postgres via `uv run tools/tracker_db.py`. Start it with `make db-up`.
 5. **Template contract.** The active CV template is `abhishek-default` (1 page, pdflatex). Drafts edit content inside its fixed macros only; `uv run tools/template_guard.py --draft <file>` must pass after every draft/revision.
-6. **Coverage gate.** `uv run tools/keyword_coverage.py` must score ≥ KEYWORD_COVERAGE_THRESHOLD (default 96) or the application blocks honestly (COVERAGE_BLOCKED) — never keyword-stuff past it. Only a recorded human override (`make run ARGS="override <id> <reason>"`) proceeds.
+6. **Coverage gate (ATS score v2).** `uv run tools/keyword_coverage.py --file <coverage.json> --resume-text <resume.txt>` must score ≥ KEYWORD_COVERAGE_THRESHOLD (default 85; weighted: required ×3, preferred ×1, "X or equivalent" = one item) AND parseability ≥ PARSEABILITY_THRESHOLD (default 80), or the application blocks honestly (COVERAGE_BLOCKED) — never keyword-stuff past it. The tool downgrades "covered" claims missing from the resume text and never upgrades a gap. Revise via COVERAGE_BLOCKED → DRAFTED, or a recorded human override (`make run ARGS="override <id> <reason>"`).
 
 ## State machine
 
@@ -174,11 +174,11 @@ All transitions via `uv run tools/tracker_db.py transition <id> <STATE> --reason
 
 ## Backend commands
 
-`make scrape` (zero-LLM portal sweep) · `make run ARGS="digest"` (daily matches) · `make run ARGS="apply <id|url>"` (headless /apply, stops at gate) · `make run ARGS="queue"` (awaiting review) · `make run ARGS="approve|reject|override <id>"` · `make stats` (states + token spend) · `make db-up|db-down` · `make sync` (framework re-sync + overlays) · `make test`.
+`make scrape` (zero-LLM portal sweep) · `make jd` (fetch full job descriptions; robots-gated, marks closed postings) · `make applied` (everything you've applied to) · `make run ARGS="digest"` (daily matches) · `make run ARGS="apply <id|url>"` (headless /apply, stops at gate) · `make run ARGS="queue"` (awaiting review) · `make run ARGS="approve|reject|override <id>"` · `make stats` (states + token spend) · `make db-up|db-down` · `make sync` (framework re-sync + overlays) · `make test`.
 
 ## Environment isolation
 
-Headless Claude runs receive ONLY whitelisted env vars (JOB_INTERESTS, JOB_LOCATIONS, RESUME_USERNAME, KEYWORD_COVERAGE_THRESHOLD). DATABASE_URL, MinIO credentials, and API tokens are read by deterministic tools only — never inject them into prompts or agent environments.
+Headless Claude runs receive ONLY whitelisted env vars (JOB_INTERESTS, JOB_LOCATIONS, RESUME_USERNAME, KEYWORD_COVERAGE_THRESHOLD, PARSEABILITY_THRESHOLD). DATABASE_URL, MinIO credentials, and API tokens are read by deterministic tools only — never inject them into prompts or agent environments.
 
 ## Git conventions
 
