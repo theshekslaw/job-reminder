@@ -96,8 +96,11 @@ Then ask exactly: **"Approve which? (all / numbers / none) — blocked ones need
 For each approved job, IN ORDER:
 
 1. If this session runs inside a cmux terminal, run `/assist-apply <id>` (fills the form,
-   uploads the approved resume, stops at the review screen). LinkedIn links: ask for the
-   employer's own careers link instead — automating LinkedIn risks the user's account.
+   uploads the approved resume, stops at the review screen). LinkedIn links: look for the
+   employer's own careers/ATS posting first and fill that. If the job is LinkedIn-only (Easy
+   Apply), open it as a tab in the user's own Chrome (`open -a "Google Chrome" <url>`) and give
+   the absolute `final_resume.pdf` path; the user fills and submits. Never automate LinkedIn,
+   never log in, never use `LINKEDIN_*` keys — automating LinkedIn risks the user's account.
    Not in cmux, or the user prefers: give the apply link + the absolute resume path.
 2. Ask: **"Submitted <Company>? (yes / skip)"**
 3. On yes:
